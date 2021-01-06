@@ -141,7 +141,6 @@ class QueryBuilder() {
         if(joinTables.isNullOrEmpty()) joinTables = "INNER JOIN $table ON $on "
         else joinTables += "INNER JOIN $table ON $on "
         return this
-
     }
 
     fun build():String {
