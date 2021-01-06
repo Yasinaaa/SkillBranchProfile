@@ -10,9 +10,9 @@ import java.util.*
     tableName = "article_counts",
     foreignKeys = [
         ForeignKey(
-        entity = Article::class,
-        parentColumns = ["id"],
-        childColumns = ["article_id"],
+            entity = Article::class,
+            parentColumns = ["id"],
+            childColumns = ["article_id"],
             onDelete = ForeignKey.CASCADE
     )]
 )

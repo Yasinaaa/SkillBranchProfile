@@ -64,7 +64,6 @@ data class ArticleItem(
     val isBookmark: Boolean = false
 )
 
-
 @DatabaseView(
     """
        SELECT id, article.title AS title, description, author_user_id, author_avatar, author_name, date, 

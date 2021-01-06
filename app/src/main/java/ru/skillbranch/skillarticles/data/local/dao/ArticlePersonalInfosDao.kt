@@ -12,12 +12,13 @@ interface ArticlePersonalInfosDao:BaseDao<ArticlePersonalInfo> {
 
     @Transaction
     fun upsert(list: List<ArticlePersonalInfo>){
-        insert(list).mapIndexed {index, recordResult ->  if(recordResult == -1L) list[index] else null }
-            .filterNotNull().also{
-            if(it.isNotEmpty()) update(it)
-        }
+        insert(list)
+            .mapIndexed {index, recordResult ->  if(recordResult == -1L) list[index] else null }
+            .filterNotNull()
+            .also{
+                if(it.isNotEmpty()) update(it)
+            }
     }
-
 
     @Query("""
         UPDATE article_personal_info SET is_like = NOT is_like, updated_at = CURRENT_TIMESTAMP 
@@ -50,8 +51,5 @@ interface ArticlePersonalInfosDao:BaseDao<ArticlePersonalInfo> {
         WHERE article_id = :articleId
     """)
     fun findPersonalInfos(articleId: String): LiveData<ArticlePersonalInfo>
-
-
-
-
+    
 }
