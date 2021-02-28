@@ -5,31 +5,33 @@ import android.os.Parcelable
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import ru.skillbranch.skillarticles.ui.dialogs.CategoryDataItem
 
 @Entity(tableName = "article_categories")
 data class Category(
     @PrimaryKey
     @ColumnInfo(name = "category_id")
-    val categoryId: String,
+    val categoryId:String,
     val icon:String,
-    val title: String
+    val title:String
 )
 
 data class CategoryData(
     @ColumnInfo(name = "category_id")
-    val categoryId: String,
+    val categoryId:String,
     val icon:String,
-    val title: String,
+    val title:String,
     @ColumnInfo(name = "articles_count")
     val articlesCount:Int = 0
-):Parcelable {
+):Parcelable{
     constructor(parcel: Parcel) : this(
         parcel.readString()!!,
         parcel.readString()!!,
         parcel.readString()!!,
         parcel.readInt()
-    ) {
-    }
+    )
+
+    fun toCategoryDataItem(checked:Boolean = false) = CategoryDataItem(categoryId, icon, title, articlesCount, checked)
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         parcel.writeString(categoryId)

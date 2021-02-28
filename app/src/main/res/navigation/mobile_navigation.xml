@@ -8,7 +8,7 @@
     <fragment
         android:id="@+id/page_article"
         android:name="ru.skillbranch.skillarticles.ui.article.ArticleFragment"
-        android:label="ArticleFragment" >
+        android:label="{title}" >
         <argument
             android:name="article_id"
             app:argType="string"
@@ -40,13 +40,13 @@
         android:name="ru.skillbranch.skillarticles.ui.articles.ArticlesFragment"
         android:label="@string/title_articles"
         tools:layout="@layout/fragment_articles" >
+        <action
+            android:id="@+id/action_to_page_article"
+            app:destination="@id/page_article" />
         <argument
             android:name="isBookmarks"
             app:argType="boolean"
             android:defaultValue="false" />
-        <action
-            android:id="@+id/action_to_page_article"
-            app:destination="@id/page_article" />
         <action
             android:id="@+id/chose_category"
             app:destination="@id/dialog_chose_category" />
@@ -56,22 +56,22 @@
         android:name="ru.skillbranch.skillarticles.ui.profile.ProfileFragment"
         android:label="@string/title_profile"
         tools:layout="@layout/fragment_profile" />
-<!--    <fragment-->
-<!--        android:id="@+id/nav_bookmarks"-->
-<!--        android:name="ru.skillbranch.skillarticles.ui.articles.ArticlesFragment"-->
-<!--        android:label="@string/title_bookmarks"-->
-<!--        tools:layout="@layout/fragment_bookmarks" >-->
-<!--        <argument-->
-<!--            android:name="isBookmarks"-->
-<!--            app:argType="boolean"-->
-<!--            android:defaultValue="true" />-->
-<!--        <action-->
-<!--            android:id="@+id/action_to_page_article"-->
-<!--            app:destination="@id/page_article" />-->
-<!--        <action-->
-<!--            android:id="@+id/chose_category"-->
-<!--            app:destination="@id/dialog_chose_category" />-->
-<!--    </fragment>-->
+    <fragment
+        android:id="@+id/nav_bookmarks"
+        android:name="ru.skillbranch.skillarticles.ui.articles.ArticlesFragment"
+        android:label="@string/title_bookmarks"
+        tools:layout="@layout/fragment_articles" >
+        <argument
+            android:name="isBookmarks"
+            app:argType="boolean"
+            android:defaultValue="true" />
+        <action
+            android:id="@+id/action_to_page_article"
+            app:destination="@id/page_article" />
+        <action
+            android:id="@+id/chose_category"
+            app:destination="@id/dialog_chose_category" />
+    </fragment>
     <fragment
         android:id="@+id/nav_transcriptions"
         android:name="ru.skillbranch.skillarticles.ui.transcriptions.TranscriptionsFragment"
@@ -91,9 +91,6 @@
                 android:name="private_destination"
                 app:argType="integer"
                 android:defaultValue="-1" />
-            <action
-                android:id="@+id/action_nav_auth_to_page_privacy_policy"
-                app:destination="@id/page_privacy_policy" />
         </fragment>
         <fragment
             android:id="@+id/page_privacy_policy"

@@ -1,30 +1,15 @@
 package ru.skillbranch.skillarticles.viewmodels.article
 
 import androidx.lifecycle.LiveData
-import ru.skillbranch.skillarticles.data.models.ArticleData
 import ru.skillbranch.skillarticles.data.local.entities.ArticlePersonalInfo
 import ru.skillbranch.skillarticles.data.repositories.MarkdownElement
 
 interface IArticleViewModel {
-//    /**
-//     * Получение полной информации о статье из сети
-//     * (или базы данных если она сохранена, наличие статьи в базе не надо реализовывать в данном уроке)
-//     */
-//    fun getArticleContent(): LiveData<List<MarkdownElement>?>
-//
-//    /**
-//     * Получение краткой информации о статье из базы данных
-//     */
-//    fun getArticleData(): LiveData<ArticleData?>
-//
-//    /**
-//     * Получение пользовательской информации о статье из базы данных
-//     */
-//    fun getArticlePersonalInfo(): LiveData<ArticlePersonalInfo?>
-//
-//    /**
-//     * Получение настроек приложения
-//     */
+
+
+    /**
+     * Получение настроек приложения
+     */
     fun handleNightMode()
 
 
@@ -100,5 +85,5 @@ interface IArticleViewModel {
     /**
      * обрабока отправки комментария, если пользователь не авторизован отобразить экран авторизации
      **/
-    fun handleSendComment(comment:String)
+    fun handleSendComment(comment: String?)
 }

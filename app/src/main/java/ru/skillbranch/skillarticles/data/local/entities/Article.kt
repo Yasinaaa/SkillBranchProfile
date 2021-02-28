@@ -6,9 +6,9 @@ import ru.skillbranch.skillarticles.data.local.MarkdownConverter
 import ru.skillbranch.skillarticles.data.repositories.MarkdownElement
 import java.util.*
 
-@Entity(tableName = "Articles")
+@Entity(tableName = "articles")
 data class Article(
-    @PrimaryKey
+    @PrimaryKey()
     val id: String,
     val title: String,
     val description: String,
@@ -29,16 +29,18 @@ data class Author(
     val name: String
 )
 
+
 @DatabaseView(
     """
-    SELECT id, date, author_name AS author, author_avatar, article.title as title, description, poster, article.category_id as category_id, 
-    counts.likes as like_count, counts.comments as comment_count, counts.read_duration as read_duration,
-    category.title as category, category.icon as category_icon, personal.is_bookmark as is_bookmark
-    FROM articles as article
-    INNER JOIN article_counts as counts ON counts.article_id = id 
-    INNER JOIN article_categories as category ON category.category_id = article.category_id
-    LEFT JOIN article_personal_info as personal ON personal.article_id = id
-"""
+        SELECT id, date, author_name AS author, author_avatar, article.title AS title, description, poster, article.category_id AS category_id,
+        counts.likes AS like_count, counts.comments AS comment_count, counts.read_duration AS read_duration,
+        category.title AS category, category.icon AS category_icon,
+        personal.is_bookmark AS is_bookmark
+        FROM articles AS article
+        INNER JOIN article_counts AS counts ON counts.article_id = id
+        INNER JOIN article_categories AS category ON category.category_id = article.category_id
+        LEFT JOIN article_personal_infos AS personal ON personal.article_id = id
+    """
 )
 data class ArticleItem(
     val id: String,
@@ -49,11 +51,11 @@ data class ArticleItem(
     val title: String,
     val description: String,
     val poster: String,
-    val category: String,
     @ColumnInfo(name = "category_id")
-    val categoryId: String = "0",
+    val categoryId: String,
+    val category: String,
     @ColumnInfo(name = "category_icon")
-    val categoryIcon: String ,
+    val categoryIcon: String,
     @ColumnInfo(name = "like_count")
     val likeCount: Int = 0,
     @ColumnInfo(name = "comment_count")
@@ -66,16 +68,15 @@ data class ArticleItem(
 
 @DatabaseView(
     """
-       SELECT id, article.title AS title, description, author_user_id, author_avatar, author_name, date, 
+        SELECT id, article.title AS title, description, author_user_id, author_avatar, author_name, date, 
         category.category_id AS category_category_id, category.title AS category_title, category.icon AS category_icon,
         content.share_link AS share_link, content.content AS content,
-        personal.is_bookmark AS is_bookmark, personal.is_like AS is_like, GROUP_CONCAT(refs.t_id) as tags,  
-        source
+        personal.is_bookmark AS is_bookmark, personal.is_like AS is_like, GROUP_CONCAT(refs.t_id) as tags, source
         FROM articles AS article
-        LEFT JOIN article_personal_info AS personal ON personal.article_id = id
-        LEFT JOIN article_content AS content ON content.article_id = id
-        LEFT JOIN article_categories AS category ON category.category_id = article.category_id
-        LEFT JOIN article_tag_x_ref AS refs ON id = refs.a_id
+        LEFT JOIN article_personal_infos AS personal ON personal.article_id = id
+        LEFT JOIN article_contents AS content ON content.article_id =id
+        LEFT JOIN article_categories AS category ON category.category_id =article.category_id
+        LEFT JOIN article_tag_x_ref AS refs ON id = refs.a_id 
         GROUP BY id
     """
 )
@@ -89,48 +90,13 @@ data class ArticleFull(
     @Embedded(prefix = "category_")
     val category: Category,
     @ColumnInfo(name = "share_link")
-    val shareLink:String? = null,
+    val shareLink: String? = null,
     @ColumnInfo(name = "is_bookmark")
     val isBookmark: Boolean = false,
     @ColumnInfo(name = "is_like")
-    val isLike:Boolean = false,
+    val isLike: Boolean = false,
     val date: Date,
     val content: List<MarkdownElement>? = null,
     val source: String? = null,
     val tags: List<String> = emptyList()
-
-)
-
-data class ArticleWithContent(
-    val id:String,
-    val title:String,
-    val description:String,
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "article_id"
-    )
-    val content:ArticleContent
-)
-
-data class CategoryWithArticles(
-    @Embedded
-    val category: Category,
-    @Relation(
-        parentColumn = "category_id",
-        entityColumn = "category_id"
-    )
-    val articles: List<Article>
-)
-
-data class ArticleWithShareLink(
-    val id:String,
-    val title:String,
-    val description:String,
-    @Relation(
-        entity = ArticleContent::class,
-        parentColumn = "id",
-        entityColumn = "article_id",
-        projection = ["share_link"]
-    )
-    val link:String
 )

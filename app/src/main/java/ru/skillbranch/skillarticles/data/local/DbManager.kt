@@ -13,31 +13,27 @@ object DbManager {
     val db = Room.databaseBuilder(
         App.applicationContext(),
         AppDb::class.java,
-        AppDb.DATABES_NAME
-    )
-        .fallbackToDestructiveMigration()
-        .build()
+        AppDb.DATABASE_NAME
+    ).build()
 }
 
 @Database(
-    entities = [
-        Article::class,
+    entities = [Article::class,
         ArticleCounts::class,
         Category::class,
         ArticlePersonalInfo::class,
         Tag::class,
         ArticleTagXRef::class,
-        ArticleContent::class
-    ],
-    version = AppDb.DATABES_VERSION,
-    exportSchema = false,
+        ArticleContent::class],
+    version = AppDb.DATABASE_VERSION,
+    exportSchema = true,
     views = [ArticleItem::class, ArticleFull::class]
 )
 @TypeConverters(DateConverter::class)
 abstract class AppDb : RoomDatabase() {
     companion object {
-        const val DATABES_NAME: String = BuildConfig.APPLICATION_ID + ".db"
-        const val DATABES_VERSION = 10
+        const val DATABASE_NAME = BuildConfig.APPLICATION_ID + ".db"
+        const val DATABASE_VERSION = 1
     }
 
     abstract fun articlesDao(): ArticlesDao

@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.skillbranch.skillarticles.data.local.entities.ArticleItem
 import ru.skillbranch.skillarticles.data.local.entities.CategoryData
+import ru.skillbranch.skillarticles.data.remote.err.NoNetworkError
 import ru.skillbranch.skillarticles.data.repositories.ArticleFilter
 import ru.skillbranch.skillarticles.data.repositories.ArticlesRepository
 import ru.skillbranch.skillarticles.viewmodels.base.BaseViewModel
@@ -20,6 +21,8 @@ import java.util.concurrent.Executors
 class ArticlesViewModel(handle: SavedStateHandle) :
     BaseViewModel<ArticlesState>(handle, ArticlesState()) {
     private val repository = ArticlesRepository
+    private var isLoadingInitial = false
+    private var isLoadingAfter = false
     private val listConfig by lazy {
         PagedList.Config.Builder()
             .setEnablePlaceholders(false)
@@ -28,12 +31,10 @@ class ArticlesViewModel(handle: SavedStateHandle) :
             .setInitialLoadSizeHint(50)
             .build()
     }
-
     private val listData = Transformations.switchMap(state) {
         val filter = it.toArticleFilter()
         return@switchMap buildPagedList(repository.rawQueryArticles(filter))
     }
-
 
     fun observeList(
         owner: LifecycleOwner,
@@ -59,6 +60,8 @@ class ArticlesViewModel(handle: SavedStateHandle) :
             dataFactory,
             listConfig
         )
+
+        //if all articles
         if (isEmptyFilter()) {
             builder.setBoundaryCallback(
                 ArticlesBoundaryCallback(
@@ -67,48 +70,38 @@ class ArticlesViewModel(handle: SavedStateHandle) :
                 )
             )
         }
+
         return builder
             .setFetchExecutor(Executors.newSingleThreadExecutor())
             .build()
     }
 
-    private fun isEmptyFilter(): Boolean =
-        currentState.searchQuery.isNullOrEmpty()
-                && !currentState.isBookmark
-                && currentState.selectedCategories.isEmpty()
-                && !currentState.isHashtagSearch
+    private fun isEmptyFilter(): Boolean = currentState.searchQuery.isNullOrEmpty()
+            && !currentState.isBookmark
+            && currentState.selectedCategories.isEmpty()
+            && !currentState.isHashtagSearch
 
     private fun itemAtEndHandle(lastLoadArticle: ArticleItem) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val items = repository.loadArticlesFromNetwork(
-                start = lastLoadArticle.id.toInt().inc(),
+        if (isLoadingAfter) return
+        else isLoadingAfter = true
+
+        launchSafety(null, { isLoadingAfter = false }) {
+            repository.loadArticlesFromNetwork(
+                start = lastLoadArticle.id,
                 size = listConfig.pageSize
             )
-            if (items.isNotEmpty()) {
-                repository.insertArticlesToDb(items)
-                listData.value?.dataSource?.invalidate()
-                withContext(Dispatchers.Main) {
-                    notify(
-                        Notify.TextMessage(
-                            "Load from network articles from ${items.firstOrNull()?.data?.id} " +
-                                    "to ${items.lastOrNull()?.data?.id}"
-                        )
-                    )
-                }
-            }
         }
     }
 
     private fun zeroLoadingHandle() {
-        notify(Notify.TextMessage("Storage is empty"))
-        viewModelScope.launch(Dispatchers.IO) {
-            val items = repository.loadArticlesFromNetwork(
-                start = 0,
+        if (isLoadingInitial) return
+        else isLoadingInitial = true
+
+        launchSafety(null, { isLoadingInitial = false }) {
+            repository.loadArticlesFromNetwork(
+                start = null,
                 size = listConfig.initialLoadSizeHint
             )
-            if (items.isNotEmpty()) {
-                repository.insertArticlesToDb(items)
-            }
         }
     }
 
@@ -122,22 +115,44 @@ class ArticlesViewModel(handle: SavedStateHandle) :
     }
 
     fun handleToggleBookmark(articleId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.toggleBookmark(articleId)
+        launchSafety(
+            {
+                when (it) {
+                    is NoNetworkError -> notify(Notify.TextMessage("Network Not Available, failed to fetch article"))
+                    else -> notify(Notify.ErrorMessage(it.message ?: "Something wrong"))
+                }
+            }
+        ) {
+            val isBookmarked = repository.toggleBookmark(articleId)
+            //if bookmarked need fetch content and handle network error
+            if (isBookmarked) {
+                launch { repository.fetchArticleContent(articleId) }
+                launch { repository.addBookmark(articleId) }
+            } else {
+                launch { repository.removeArticleContent(articleId) }
+                launch { repository.removeBookmark(articleId) }
+            }
         }
-
     }
 
     fun handleSuggestion(tag: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository  .incrementTagUseCount(tag)
-        }
+        viewModelScope.launch { repository.incrementTagUseCount(tag) }
     }
 
-    fun applyCategories(selectedCategories: List<String>){
+    fun applyCategories(selectedCategories: List<String>) {
         updateState { it.copy(selectedCategories = selectedCategories) }
     }
 
+    fun refresh() {
+        launchSafety {
+            val lastArticleId: String? = repository.findLastArticleId()
+            val count = repository.loadArticlesFromNetwork(
+                start = lastArticleId,
+                size = if (lastArticleId == null) listConfig.initialLoadSizeHint else -listConfig.pageSize
+            )
+            notify(Notify.TextMessage("Load $count new articles"))
+        }
+    }
 }
 
 private fun ArticlesState.toArticleFilter(): ArticleFilter = ArticleFilter(
@@ -146,7 +161,6 @@ private fun ArticlesState.toArticleFilter(): ArticleFilter = ArticleFilter(
     categories = selectedCategories,
     isHashtag = isHashtagSearch
 )
-
 
 data class ArticlesState(
     val isSearch: Boolean = false,
@@ -161,13 +175,15 @@ data class ArticlesState(
 class ArticlesBoundaryCallback(
     private val zeroLoadingHandle: () -> Unit,
     private val itemAtEndHandle: (ArticleItem) -> Unit
+
 ) : PagedList.BoundaryCallback<ArticleItem>() {
     override fun onZeroItemsLoaded() {
+        //Storage is empty
         zeroLoadingHandle()
     }
 
     override fun onItemAtEndLoaded(itemAtEnd: ArticleItem) {
+        //user scroll down -> need load more items
         itemAtEndHandle(itemAtEnd)
     }
-
 }

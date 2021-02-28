@@ -1,36 +1,57 @@
 package ru.skillbranch.skillarticles.extensions
 
 import android.view.View
-import android.widget.FrameLayout
-import androidx.core.widget.NestedScrollView
+import android.view.ViewGroup
+import androidx.annotation.IdRes
+import androidx.core.view.*
 import androidx.navigation.NavDestination
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-fun NestedScrollView.setMarginOptionally(
-    left: Int = -1,
-    top: Int = -1,
-    right: Int = -1,
-    bottom: Int = -1
-) {
-    if (bottom >= 0) (layoutParams as FrameLayout.LayoutParams).bottomMargin = bottom
-    if (left >= 0) (layoutParams as FrameLayout.LayoutParams).leftMargin = left
-    if (top >= 0) (layoutParams as FrameLayout.LayoutParams).topMargin = top
-    if (right >= 0) (layoutParams as FrameLayout.LayoutParams).rightMargin = right
-
-}
-
 fun View.setPaddingOptionally(
-    left: Int = paddingLeft,
-    right: Int = paddingRight,
-    top: Int = paddingTop,
-    bottom: Int = paddingBottom
-) {
+    left:Int = paddingLeft,
+    top : Int = paddingTop,
+    right : Int = paddingRight,
+    bottom : Int = paddingBottom
+){
     setPadding(left, top, right, bottom)
 }
-
-
-fun BottomNavigationView.selectDestination(destination: NavDestination) {
-    val menuItem = menu.findItem(destination.id)
-    menuItem?.isChecked = true
+fun BottomNavigationView.selectDestination(destination: NavDestination){
+    for (item in menu.iterator()) {
+        if (matchDestination(destination, item.itemId)) {
+            item.isChecked = true
+        }
+    }
 }
 
+fun View.setMarginOptionally(
+    left:Int = marginLeft,
+    top : Int = marginTop,
+    right : Int = marginRight,
+    bottom : Int = marginBottom
+){
+    (layoutParams as? ViewGroup.MarginLayoutParams)?.run{
+        leftMargin = left
+        rightMargin = right
+        topMargin = top
+        bottomMargin = bottom
+    }
+//    requestLayout()
+}
+
+fun BottomNavigationView.selectItem(itemId: Int?){
+    itemId?: return
+    for (item in menu.iterator()) {
+        if(item.itemId == itemId) {
+            item.isChecked = true
+            break
+        }
+    }
+}
+
+fun matchDestination(destination: NavDestination, @IdRes destId: Int) : Boolean{
+    var currentDestination: NavDestination? = destination
+    while (currentDestination!!.id != destId && currentDestination.parent != null) {
+        currentDestination = currentDestination.parent
+    }
+    return currentDestination.id == destId
+}
