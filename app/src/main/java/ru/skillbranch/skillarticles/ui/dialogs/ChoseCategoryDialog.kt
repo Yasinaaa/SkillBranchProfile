@@ -2,52 +2,57 @@ package ru.skillbranch.skillarticles.ui.dialogs
 
 import android.app.Dialog
 import android.os.Bundle
-import android.view.LayoutInflater
+import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.android.synthetic.main.fragment_chose_category_dialog.*
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
+import kotlinx.android.extensions.LayoutContainer
+import kotlinx.android.synthetic.main.item_category_dialog.*
 import ru.skillbranch.skillarticles.R
 import ru.skillbranch.skillarticles.viewmodels.articles.ArticlesViewModel
 
-
 class ChoseCategoryDialog : DialogFragment() {
     private val viewModel: ArticlesViewModel by activityViewModels()
+    private val selectedCategories = mutableListOf<String>()
     private val args: ChoseCategoryDialogArgs by navArgs()
-    private val categories by lazy { args.categories }
-    private val selected = mutableSetOf<String>()
-    private var listView: View? = null
+    private val categoryAdapter = CategoryAdapter { categoryId: String, isChecked: Boolean ->
+        toggleCategory(categoryId, isChecked)
+        Log.e("ChoseCategoryDialog", "$categoryId: $isChecked $selectedCategories");
+    }
 
-    private val categoriesAdapter = CategoriesAdapter { categoryId: String, isChecked: Boolean ->
-        if (isChecked) selected.add(categoryId)
-        else selected.remove(categoryId)
+    private fun toggleCategory(categoryId: String, isChecked: Boolean) {
+        if (isChecked) selectedCategories.add(categoryId)
+        else selectedCategories.remove(categoryId)
+        val categories = args.categories.toList()
+        val categoryItems = categories.map { it.toCategoryDataItem(selectedCategories.contains(it.categoryId)) }
+        categoryAdapter.submitList(categoryItems)
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        selected.clear()
-        selected.addAll(savedInstanceState?.getStringArray("checked") ?: args.selectedCategories)
-        val categoryItems = args.categories.map { it.toItem(selected.contains(it.categoryId)) }
-        categoriesAdapter.submitList(
-            categoryItems
-        )
+        val categories = args.categories.toList()
+        selectedCategories.clear()
+        selectedCategories.addAll(savedInstanceState?.getStringArray("checked") ?: args.selectedCategories)
+        val categoryItems = categories.map { it.toCategoryDataItem(selectedCategories.contains(it.categoryId)) }
 
-        listView =
-            layoutInflater.inflate(R.layout.fragment_chose_category_dialog, null) as RecyclerView
+        categoryAdapter.submitList(categoryItems)
 
-        with(listView as RecyclerView) {
-            layoutManager = LinearLayoutManager(context)
-            adapter = categoriesAdapter
+        val listView =
+            layoutInflater.inflate(R.layout.fragment_choose_category_dialog, null) as RecyclerView
+        with(listView) {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = categoryAdapter
         }
-
         return AlertDialog.Builder(requireContext())
             .setTitle("Chose category")
             .setPositiveButton("Apply") { _, _ ->
-                viewModel.applyCategories(selected.toList())
+                viewModel.applyCategories(selectedCategories)
             }
             .setNegativeButton("Reset") { _, _ ->
                 viewModel.applyCategories(emptyList())
@@ -56,23 +61,42 @@ class ChoseCategoryDialog : DialogFragment() {
             .create()
     }
 
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-        val saved = savedInstanceState?.getStringArray("checked")
-        if (saved != null) {
-            selected.clear()
-            selected.addAll(saved)
-        }
-        val categoryItems = args.categories.map { it.toItem(selected.contains(it.categoryId)) }
-        categoriesAdapter.submitList(categoryItems)
-
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putStringArray("checked", selected.toTypedArray())
+        outState.putStringArray("checked", selectedCategories.toTypedArray())
         super.onSaveInstanceState(outState)
     }
 
-
 }
+
+class CategoryVH(override val containerView: View, val listener: (String, Boolean) -> Unit) :
+    RecyclerView.ViewHolder(containerView), LayoutContainer {
+
+    fun bind(item: CategoryDataItem) {
+        ch_select.isChecked = item.isChecked
+        Glide.with(containerView.context)
+            .load(item.icon)
+            .apply(RequestOptions.circleCropTransform())
+            .override(iv_icon.width)
+            .into(iv_icon)
+        tv_category.text = item.title
+        tv_count.text = "${item.articlesCount}"
+        ch_select.setOnCheckedChangeListener { _, checked -> listener(item.categoryId, checked) }
+        itemView.setOnClickListener { ch_select.toggle() }
+    }
+}
+
+class CategoryDiffCallback() : DiffUtil.ItemCallback<CategoryDataItem>() {
+    override fun areItemsTheSame(oldItem: CategoryDataItem, newItem: CategoryDataItem): Boolean =
+        oldItem.categoryId == newItem.categoryId
+
+    override fun areContentsTheSame(oldItem: CategoryDataItem, newItem: CategoryDataItem): Boolean =
+        oldItem == newItem
+}
+
+data class CategoryDataItem(
+    val categoryId: String,
+    val icon: String,
+    val title: String,
+    val articlesCount: Int = 0,
+    val isChecked: Boolean = false
+)
