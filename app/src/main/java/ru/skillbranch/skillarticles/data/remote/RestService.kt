@@ -19,6 +19,7 @@ interface RestService {
     @GET("articles/{article}/content")
     suspend fun loadArticleContent(@Path("article") articleId: String): ArticleContentRes
 
+
     //https://skill-articles.skill-branch.ru/api/v1/articles/{articleId}/messages
     @GET("articles/{article}/messages")
     fun loadComments(

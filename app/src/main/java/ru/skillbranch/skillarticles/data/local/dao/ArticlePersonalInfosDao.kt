@@ -36,8 +36,7 @@ interface ArticlePersonalInfosDao : BaseDao<ArticlePersonalInfo> {
 
     @Transaction
     suspend fun toggleBookmarkOrInsert(articleId: String): Boolean {
-        if (toggleBookmark(articleId) == 0)
-            insert(ArticlePersonalInfo(articleId = articleId, isBookmark = true))
+        if (toggleBookmark(articleId) == 0)  insert(ArticlePersonalInfo(articleId = articleId, isBookmark = true))
         return isBookmarked(articleId)
     }
 
@@ -51,8 +50,7 @@ interface ArticlePersonalInfosDao : BaseDao<ArticlePersonalInfo> {
 
     @Transaction
     suspend fun toggleLikeOrInsert(articleId: String) :Boolean{
-        if (toggleLike(articleId) == 0)
-            insert(ArticlePersonalInfo(articleId = articleId,isLike = true))
+        if (toggleLike(articleId) == 0) insert(ArticlePersonalInfo(articleId = articleId,isLike = true))
         return isLiked(articleId)
     }
 

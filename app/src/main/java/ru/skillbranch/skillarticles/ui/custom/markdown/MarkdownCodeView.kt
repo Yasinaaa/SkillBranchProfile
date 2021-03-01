@@ -28,7 +28,6 @@ class MarkdownCodeView private constructor(
     context: Context,
     fontSize: Float
 ) : ViewGroup(context, null, 0), IMarkdownView {
-
     override var fontSize: Float = fontSize
         set(value) {
             tv_codeView.textSize = value * 0.85f
@@ -87,7 +86,6 @@ class MarkdownCodeView private constructor(
             else -> lightOnSurface
         }
 
-
     init {
         tv_codeView = MarkdownTextView(context, fontSize * 0.85f).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
@@ -96,6 +94,7 @@ class MarkdownCodeView private constructor(
             isFocusable = true
             isFocusableInTouchMode = true
         }
+
         sv_scroll = object : HorizontalScrollView(context) {
             override fun getLeftFadingEdgeStrength(): Float {
                 return 0f
@@ -105,9 +104,12 @@ class MarkdownCodeView private constructor(
             isHorizontalFadingEdgeEnabled = true
             scrollBarSize = scrollBarHeight
             setFadingEdgeLength(fadingOffset)
+            //add code text to scroll
             addView(tv_codeView)
         }
+
         addView(sv_scroll)
+
         iv_copy = ImageView(context).apply {
             setImageResource(R.drawable.ic_content_copy_black_24dp)
             imageTintList = ColorStateList.valueOf(textColor)
@@ -116,12 +118,11 @@ class MarkdownCodeView private constructor(
             }
         }
         addView(iv_copy)
+
         iv_switch = ImageView(context).apply {
             setImageResource(R.drawable.ic_brightness_medium_black_24dp)
             imageTintList = ColorStateList.valueOf(textColor)
-            setOnClickListener {
-                toggleColors()
-            }
+            setOnClickListener { toggleColors() }
         }
         addView(iv_switch)
     }
@@ -138,17 +139,19 @@ class MarkdownCodeView private constructor(
         setPadding(padding)
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadii = FloatArray(8) { radius }
+            cornerRadii = FloatArray(8).apply { fill(radius, 0, size) }
             color = ColorStateList.valueOf(bgColor)
-
         }
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = View.getDefaultSize(suggestedMinimumWidth, widthMeasureSpec)
+        var usedHeight = 0
+        val width = getDefaultSize(suggestedMinimumWidth, widthMeasureSpec)
         measureChild(sv_scroll, widthMeasureSpec, heightMeasureSpec)
-        val usedHeight = sv_scroll.measuredHeight + paddingTop + paddingBottom
+        measureChild(iv_copy, widthMeasureSpec, heightMeasureSpec)
+
+        usedHeight += sv_scroll.measuredHeight + paddingTop + paddingBottom
         setMeasuredDimension(width, usedHeight)
     }
 
@@ -158,21 +161,24 @@ class MarkdownCodeView private constructor(
         val bodyWidth = r - l - paddingLeft - paddingRight
         val left = paddingLeft
         val right = paddingLeft + bodyWidth
+
         if (isSingleLine) {
             val iconHeight = (b - t - iconSize) / 2
+
             iv_copy.layout(
                 right - iconSize,
                 iconHeight,
                 right,
                 iconHeight + iconSize
             )
-            iv_switch.layout(
-                iv_copy.right - (2.5f * iconSize).toInt(),
-                iconHeight,
-                iv_copy.right - (1.5f * iconSize).toInt(),
-                iconHeight + iconSize
 
+            iv_switch.layout(
+                iv_copy.right - (2.5f*iconSize).toInt(),
+                iconHeight,
+                iv_copy.right - (1.5f*iconSize).toInt(),
+                iconHeight + iconSize
             )
+
         } else {
             iv_copy.layout(
                 right - iconSize,
@@ -180,23 +186,26 @@ class MarkdownCodeView private constructor(
                 right,
                 usedHeight + iconSize
             )
-            iv_switch.layout(
-                iv_copy.right - (2.5f * iconSize).toInt(),
-                usedHeight,
-                iv_copy.right - (1.5f * iconSize).toInt(),
-                usedHeight + iconSize
 
+            iv_switch.layout(
+                iv_copy.right - (2.5f*iconSize).toInt(),
+                usedHeight,
+                iv_copy.right - (1.5f*iconSize).toInt(),
+                usedHeight + iconSize
             )
         }
 
-        sv_scroll.layout(left, usedHeight, right, usedHeight + sv_scroll.measuredHeight)
-
-
+        sv_scroll.layout(
+            left,
+            usedHeight,
+            right,
+            usedHeight + sv_scroll.measuredHeight
+        )
     }
 
     override fun renderSearchPosition(searchPosition: Pair<Int, Int>, offset: Int) {
-
-        if ((parent as ViewGroup).hasFocus() && !tv_codeView.hasFocus()) tv_codeView.requestFocus()
+        super.renderSearchPosition(searchPosition, offset)
+        if((parent as ViewGroup).hasFocus() && !tv_codeView.hasFocus()) tv_codeView.requestFocus()
         Selection.setSelection(spannableContent, searchPosition.first.minus(offset))
     }
 
@@ -206,6 +215,7 @@ class MarkdownCodeView private constructor(
         applyColors()
     }
 
+
     private fun applyColors() {
         iv_switch.imageTintList = ColorStateList.valueOf(textColor)
         iv_copy.imageTintList = ColorStateList.valueOf(textColor)
@@ -213,14 +223,15 @@ class MarkdownCodeView private constructor(
         tv_codeView.setTextColor(textColor)
     }
 
-    public override fun onSaveInstanceState(): Parcelable {
-        val savedState = SavedState(super.onSaveInstanceState()!!)
+    override fun onSaveInstanceState(): Parcelable? {
+        val savedState =
+            SavedState(super.onSaveInstanceState())
         savedState.ssIsManual = isManual
         savedState.ssIsDark = isDark
         return savedState
     }
 
-    public override fun onRestoreInstanceState(state: Parcelable) {
+    override fun onRestoreInstanceState(state: Parcelable) {
         super.onRestoreInstanceState(state)
         if (state is SavedState) {
             isManual = state.ssIsManual
@@ -229,35 +240,32 @@ class MarkdownCodeView private constructor(
         }
     }
 
-
-    internal class SavedState : BaseSavedState {
-
+    private class SavedState : BaseSavedState, Parcelable {
         var ssIsManual: Boolean = false
         var ssIsDark: Boolean = false
 
-        constructor(superState: Parcelable) : super(superState)
+        constructor(superState: Parcelable?) : super(superState)
 
-        constructor(source: Parcel) : super(source) {
-            ssIsManual = source.readInt() == 1
-            ssIsDark = source.readInt() == 1
+        constructor(src: Parcel) : super(src) {
+            //restore state from parcel
+            ssIsManual = src.readInt() == 1
+            ssIsDark = src.readInt() == 1
         }
 
-        override fun writeToParcel(out: Parcel, flags: Int) {
-            super.writeToParcel(out, flags)
-            out.writeInt((if (ssIsManual) 1 else 0))
-            out.writeInt((if (ssIsDark) 1 else 0))
+        override fun writeToParcel(dst: Parcel, flags: Int) {
+            //write state to parcel
+            super.writeToParcel(dst, flags)
+            dst.writeInt(if (ssIsManual) 1 else 0)
+            dst.writeInt(if (ssIsDark) 1 else 0)
         }
 
-        override fun describeContents(): Int  = 0
+        override fun describeContents() = 0
 
-        @JvmField
-        val CREATOR: Parcelable.Creator<SavedState> = object : Parcelable.Creator<SavedState> {
-
-            override fun createFromParcel(source: Parcel): SavedState = SavedState(source)
-
+        companion object CREATOR : Parcelable.Creator<SavedState> {
+            override fun createFromParcel(parcel: Parcel) =
+                SavedState(parcel)
 
             override fun newArray(size: Int): Array<SavedState?> = arrayOfNulls(size)
-
         }
     }
 }

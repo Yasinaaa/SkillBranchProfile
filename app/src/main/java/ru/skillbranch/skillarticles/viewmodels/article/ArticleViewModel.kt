@@ -128,9 +128,9 @@ class ArticleViewModel(
             else {
                 Notify.ActionMessage(
                     "Don`t like it anymore", //message
-                    "No, still like it" //action label on snackbar
-                        // handler function , if press "No, still like it" on snackbar, then toggle again
-                ) { handleLike() }
+                    "No, still like it", //action label on snackbar
+                    { handleLike() }// handler function , if press "No, still like it" on snackbar, then toggle again
+                )
             }
 
             notify(msg)
@@ -235,6 +235,7 @@ class ArticleViewModel(
         updateState { it.copy(answerToMessageId = messageId, answerTo = "Reply to $name") }
     }
 }
+
 
 data class ArticleState(
     val isAuth: Boolean = false, //пользователь авторизован

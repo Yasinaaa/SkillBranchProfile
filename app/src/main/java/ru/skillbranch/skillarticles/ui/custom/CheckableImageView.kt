@@ -2,16 +2,16 @@ package ru.skillbranch.skillarticles.ui.custom
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
 import android.widget.Checkable
 import android.widget.ImageView
-import androidx.appcompat.widget.AppCompatImageView
 
 class CheckableImageView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : AppCompatImageView(context, attrs, defStyleAttr), Checkable, View.OnClickListener {
+) : ImageView(context, attrs, defStyleAttr), Checkable, View.OnClickListener{
     private var checked = false
 
     companion object {
@@ -23,8 +23,8 @@ class CheckableImageView @JvmOverloads constructor(
     }
 
     override fun onCreateDrawableState(extraSpace: Int): IntArray {
-        val drawableState = super.onCreateDrawableState(extraSpace + 1)
-        if (isChecked) View.mergeDrawableStates(drawableState, CHECKED_STATE_SET)
+        val drawableState =  super.onCreateDrawableState(extraSpace + 1)
+        if(isChecked) View.mergeDrawableStates(drawableState, CHECKED_STATE_SET)
         return drawableState
     }
 
@@ -35,7 +35,7 @@ class CheckableImageView @JvmOverloads constructor(
     }
 
     override fun setChecked(check: Boolean) {
-        if (checked == check) return
+        if(checked == check) return
         checked = check
         refreshDrawableState()
     }
