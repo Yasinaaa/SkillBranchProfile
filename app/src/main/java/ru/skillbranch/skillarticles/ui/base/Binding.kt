@@ -61,7 +61,7 @@ abstract class Binding {
         vararg fields: KProperty<*>,
         onChange: (A, B) -> Unit
     ) {
-        check(fields.size == 2) { "Names size must be 4, current ${fields.size}" }
+        check(fields.size == 2) { "Names size must be 2, current ${fields.size}" }
         val names = fields.map { it.name }
 
         names.forEach {

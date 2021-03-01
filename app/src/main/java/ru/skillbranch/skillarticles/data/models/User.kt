@@ -1,7 +1,5 @@
 package ru.skillbranch.skillarticles.data.models
 
-import java.util.*
-
 data class User(
     val id: String,
     val name: String,

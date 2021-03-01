@@ -4,22 +4,22 @@ import android.database.Cursor
 import android.database.MatrixCursor
 import android.os.Bundle
 import android.provider.BaseColumns
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.AutoCompleteTextView
+import androidx.appcompat.widget.SearchView
+import androidx.core.view.isVisible
 import androidx.cursoradapter.widget.CursorAdapter
 import androidx.cursoradapter.widget.SimpleCursorAdapter
-import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.android.synthetic.main.activity_root.*
 import kotlinx.android.synthetic.main.fragment_articles.*
+import kotlinx.android.synthetic.main.search_view_layout.view.*
 import ru.skillbranch.skillarticles.R
-import ru.skillbranch.skillarticles.data.local.entities.ArticleItem
 import ru.skillbranch.skillarticles.data.local.entities.CategoryData
-import ru.skillbranch.skillarticles.ui.article.ArticleFragmentArgs
 import ru.skillbranch.skillarticles.ui.base.BaseFragment
 import ru.skillbranch.skillarticles.ui.base.Binding
 import ru.skillbranch.skillarticles.ui.base.MenuItemHolder
@@ -28,10 +28,10 @@ import ru.skillbranch.skillarticles.ui.delegates.RenderProp
 import ru.skillbranch.skillarticles.viewmodels.articles.ArticlesState
 import ru.skillbranch.skillarticles.viewmodels.articles.ArticlesViewModel
 import ru.skillbranch.skillarticles.viewmodels.base.IViewModelState
+import ru.skillbranch.skillarticles.viewmodels.base.Loading
 import ru.skillbranch.skillarticles.viewmodels.base.NavigationCommand
 
 class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
-
     override val viewModel: ArticlesViewModel by activityViewModels()
     override val layout: Int = R.layout.fragment_articles
     override val binding: ArticlesBinding by lazy { ArticlesBinding() }
@@ -47,11 +47,12 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
                 R.layout.search_view_layout
             )
         )
+
         addMenuItem(
             MenuItemHolder(
                 "Filter",
                 R.id.action_filter,
-                R.drawable.ic_filter_list_black_24,
+                R.drawable.ic_filter_list_black_24dp,
                 null
             ) { _ ->
                 val action = ArticlesFragmentDirections.choseCategory(
@@ -63,61 +64,38 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
         )
     }
 
-    private fun navigateToArticle(item: ArticleItem) {
-        Log.e("ArticlesFragment", "click on article ${item.id}")
-        val action = ArticlesFragmentDirections.actionToPageArticle(
-            item.id,
-            item.author,
-            item.authorAvatar!!,
-            item.category,
-            item.categoryIcon,
-            item.poster,
-            item.title,
-            item.date
-        )
-        viewModel.navigate(NavigationCommand.To(action.actionId, action.arguments))
+    private val articlesAdapter = ArticlesAdapter { item, isToggleBookmark ->
+
+        if (isToggleBookmark) {
+            viewModel.handleToggleBookmark(item.id)
+        } else {
+            val action = ArticlesFragmentDirections.actionToPageArticle(
+                item.id,
+                item.author,
+                item.authorAvatar!!,
+                item.category,
+                item.categoryIcon,
+                item.poster,
+                item.title,
+                item.date
+            )
+            viewModel.navigate(NavigationCommand.To(action.actionId, action.arguments))
+        }
     }
-
-    private fun toggleBookmark(item: ArticleItem) {
-
-        viewModel.handleToggleBookmark(item.id)
-    }
-
-    private val articlesAdapter = ArticlesAdapter(
-        ::navigateToArticle,
-        ::toggleBookmark
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         suggestionsAdapter = SimpleCursorAdapter(
             context,
             android.R.layout.simple_list_item_1,
-            null,
-            arrayOf("tag"),
-            intArrayOf(android.R.id.text1),
+            null, //cursor
+            arrayOf("tag"), //cursor column for bind on view
+            intArrayOf(android.R.id.text1), //text view id for bind data from cursor columns
             CursorAdapter.FLAG_REGISTER_CONTENT_OBSERVER
         )
         suggestionsAdapter.setFilterQueryProvider { constraint -> populateAdapter(constraint) }
         setHasOptionsMenu(true)
-    }
-
-    private fun populateAdapter(constraint: CharSequence?): Cursor {
-        val cursor = MatrixCursor(
-            arrayOf(
-                BaseColumns._ID,
-                "tag"
-            )
-        )
-        constraint ?: return cursor
-        val currentCursor = suggestionsAdapter.cursor
-        currentCursor.moveToFirst()
-        for (i in 0 until currentCursor.count) {
-            val tagValue = currentCursor.getString(1)
-            if (tagValue.contains(constraint, true)) cursor.addRow(arrayOf(i, tagValue))
-            currentCursor.moveToNext()
-        }
-        return cursor
     }
 
     override fun onPrepareOptionsMenu(menu: Menu) {
@@ -131,7 +109,6 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
         val autoTv = searchView.findViewById<AutoCompleteTextView>(R.id.search_src_text)
         autoTv.threshold = 1
-        autoTv.setDropDownBackgroundResource(R.color.color_article_bar);
 
         searchView.suggestionsAdapter = suggestionsAdapter
         searchView.setOnSuggestionListener(object : SearchView.OnSuggestionListener {
@@ -148,15 +125,16 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
         })
 
         menuItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
-            override fun onMenuItemActionExpand(p0: MenuItem?): Boolean {
+            override fun onMenuItemActionExpand(item: MenuItem?): Boolean {
                 viewModel.handleSearchMode(true)
                 return true
             }
 
-            override fun onMenuItemActionCollapse(p0: MenuItem?): Boolean {
+            override fun onMenuItemActionCollapse(item: MenuItem?): Boolean {
                 viewModel.handleSearchMode(false)
                 return true
             }
+
         })
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -169,12 +147,26 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
                 viewModel.handleSearch(newText)
                 return true
             }
-
         })
     }
 
-    override fun setupViews() {
+    override fun onDestroyView() {
+        toolbar.search_view?.setOnQueryTextListener(null)
+        super.onDestroyView()
+    }
 
+    override fun renderLoading(loadingState: Loading) {
+        when(loadingState){
+            Loading.SHOW_LOADING -> if(!refresh.isRefreshing) root.progress.isVisible = true
+            Loading.SHOW_BLOCKING_LOADING -> root.progress.isVisible = false
+            Loading.HIDE_LOADING ->{
+                root.progress.isVisible = false
+                if(refresh.isRefreshing) refresh.isRefreshing = false
+            }
+        }
+    }
+
+    override fun setupViews() {
         with(rv_articles) {
             layoutManager = LinearLayoutManager(context)
             adapter = articlesAdapter
@@ -192,15 +184,39 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
         viewModel.observeCategories(viewLifecycleOwner) {
             binding.categories = it
         }
+
+        refresh.setOnRefreshListener(viewModel::refresh)
+    }
+
+    private fun populateAdapter(constraint: CharSequence?): Cursor {
+        val cursor = MatrixCursor(
+            arrayOf(
+                BaseColumns._ID,
+                "tag"
+            )
+        ) //create cursor for table with 2 column _id, tag
+        constraint ?: return cursor
+
+        val currentCursor = suggestionsAdapter.cursor
+        currentCursor.moveToFirst()
+
+        for (i in 0 until currentCursor.count) {
+            val tagValue = currentCursor.getString(1) //2 column with name tag
+            if (tagValue.contains(constraint, true)) cursor.addRow(arrayOf<Any>(i, tagValue))
+            currentCursor.moveToNext()
+        }
+        return cursor
     }
 
     inner class ArticlesBinding : Binding() {
         var categories: List<CategoryData> = emptyList()
-        var selectedCategories: List<String> by RenderProp<List<String>>(emptyList())
+        var selectedCategories: List<String> by RenderProp(emptyList()) {
+            //TODO selected color on icon
+        }
         var searchQuery: String? = null
         var isSearch: Boolean = false
         var isLoading: Boolean by RenderProp(true) {
-
+            //TODO show shimmer on rv_list
         }
 
         var isHashtagSearch: Boolean by RenderProp(false)
@@ -209,8 +225,8 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
         override fun bind(data: IViewModelState) {
             data as ArticlesState
             isSearch = data.isSearch
-            isLoading = data.isLoading
             searchQuery = data.searchQuery
+            isLoading = data.isLoading
             isHashtagSearch = data.isHashtagSearch
             selectedCategories = data.selectedCategories
         }
@@ -221,15 +237,13 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
                 if (ihs && tags.isNotEmpty()) {
                     for ((counter, tag) in tags.withIndex()) {
-                        cursor.addRow(arrayOf(counter, tag))
+                        cursor.addRow(arrayOf<Any>(counter, tag))
                     }
                 }
+
                 suggestionsAdapter.changeCursor(cursor)
             }
         }
-
-
     }
-
 
 }

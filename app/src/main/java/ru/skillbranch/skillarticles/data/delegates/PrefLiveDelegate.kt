@@ -15,11 +15,11 @@ class PrefLiveDelegate<T>(
     private var storedValue: LiveData<T>? = null
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): LiveData<T> {
-        if (storedValue == null) {
-            storedValue = SharedPreferenceLiveData(preferences, fieldKey, defaultValue)
-        }
-        return storedValue!!
-    }
+         if (storedValue == null) {
+             storedValue = SharedPreferenceLiveData(preferences, fieldKey, defaultValue)
+         }
+         return storedValue!!
+     }
 }
 
 

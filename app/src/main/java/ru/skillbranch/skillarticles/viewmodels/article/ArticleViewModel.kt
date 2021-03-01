@@ -129,7 +129,7 @@ class ArticleViewModel(
                 Notify.ActionMessage(
                     "Don`t like it anymore", //message
                     "No, still like it" //action label on snackbar
-                    // handler function , if press "No, still like it" on snackbar, then toggle again
+                        // handler function , if press "No, still like it" on snackbar, then toggle again
                 ) { handleLike() }
             }
 
