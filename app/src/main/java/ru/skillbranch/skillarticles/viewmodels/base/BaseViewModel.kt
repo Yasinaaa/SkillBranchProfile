@@ -20,8 +20,13 @@ abstract class BaseViewModel<T : IViewModelState>(
 ) : ViewModel() {
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     val notifications = MutableLiveData<Event<Notify>>()
+
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     val navigation = MutableLiveData<Event<NavigationCommand>>()
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    val permissions = MutableLiveData<Event<List<String>>>()
+
     private val loading = MutableLiveData<Loading>(Loading.HIDE_LOADING)
 
     /***
@@ -46,6 +51,7 @@ abstract class BaseViewModel<T : IViewModelState>(
      * лямбда выражение принимает в качестве аргумента текущее состояние и возвращает
      * модифицированное состояние, которое присваивается текущему состоянию
      */
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     @UiThread
     inline fun updateState(update: (currentState: T) -> T) {
         val updatedState: T = update(currentState)
@@ -57,15 +63,22 @@ abstract class BaseViewModel<T : IViewModelState>(
      * соответсвенно при изменении конфигурации и пересоздании Activity уведомление не будет вызвано
      * повторно
      */
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     @UiThread
-    protected fun notify(content: Notify) {
+    fun notify(content: Notify) {
         notifications.value = Event(content)
     }
 
+    /***
+     * отображение индикатора загрузки ( по умолчанию не блокирующий Loading
+     */
     protected fun showLoading(loadingType: Loading = Loading.SHOW_LOADING) {
         loading.value = loadingType
     }
 
+    /***
+     * скрытие отображения загрузки
+     */
     protected fun hideLoading() {
         loading.value = Loading.HIDE_LOADING
     }
@@ -80,12 +93,14 @@ abstract class BaseViewModel<T : IViewModelState>(
      */
     fun observeState(owner: LifecycleOwner, onChanged: (newState: T) -> Unit) {
         state.observe(owner, Observer { onChanged(it!!) })
-
     }
 
+    /***
+     * более компактная форма записи observe() метода LiveData принимает последним аргумент лямбда
+     * выражение обрабатывающее изменение текущего индикатора загрузки
+     */
     fun observeLoading(owner: LifecycleOwner, onChanged: (newState: Loading) -> Unit) {
         loading.observe(owner, Observer { onChanged(it!!) })
-
     }
 
     /***
@@ -117,38 +132,40 @@ abstract class BaseViewModel<T : IViewModelState>(
         }
     }
 
-    open fun saveState() {
+    fun saveState() {
         currentState.save(handleState)
     }
 
     @Suppress("UNCHECKED_CAST")
     fun restoreState() {
         val restoredState = currentState.restore(handleState) as T
-        if(currentState == restoredState) return
+        if (currentState == restoredState) return
         state.value = currentState.restore(handleState) as T
     }
 
+    //01:20:00
     protected fun launchSafety(
         errHandler: ((Throwable) -> Unit)? = null,
         compHandler: ((Throwable?) -> Unit)? = null,
         block: suspend CoroutineScope.() -> Unit
     ) {
-        //используется обработчик ошибок переданный в качестве аргумента или обработчик ошибок пол умолчанию
+        //используется обработчик ошибок переданный в качестве аргумента или обработчик ошибок по умолчанию
         val errHand = CoroutineExceptionHandler { _, err ->
             errHandler?.invoke(err) ?: when (err) {
                 is NoNetworkError -> notify(Notify.TextMessage("Network not available, check internet connection"))
 
                 is SocketTimeoutException -> notify(
                     Notify.ActionMessage(
-                        "Network timeout exception - please try again",
+                        "Network timeout exeption - please try again",
                         "Retry"
                     ) { launchSafety(errHandler, compHandler, block) })
 
                 is ApiError.InternalServerError -> notify(
                     Notify.ErrorMessage(
                         err.message,
-                        "Retry"
-                    ) { launchSafety(errHandler, compHandler, block) })
+                        "Retry",
+                        { launchSafety(errHandler, compHandler, block) })
+                )
 
                 is ApiError -> notify(Notify.ErrorMessage(err.message))
                 else -> notify(Notify.ErrorMessage(err.message ?: "Something wrong"))
@@ -156,19 +173,21 @@ abstract class BaseViewModel<T : IViewModelState>(
         }
 
         (viewModelScope + errHand).launch {
-            //отобразить индикатор загрузки
             showLoading()
             block()
         }.invokeOnCompletion {
-            //скрыть индикатор загрузки по окончанию выполнения suspend функции
             hideLoading()
-            //выызвать обработчик окончания выполнения suspend функции если имеется
             compHandler?.invoke(it)
         }
-
     }
 
+    fun requestPermissions(requestedPermissions: List<String>) {
+        permissions.value = Event(requestedPermissions)
+    }
 
+    fun observedPermissions(owner: LifecycleOwner, handle: (permissions: List<String>) -> Unit) {
+        permissions.observe(owner, EventObserver { handle(it) })
+    }
 }
 
 class Event<out E>(private val content: E) {
@@ -203,7 +222,7 @@ class EventObserver<E>(private val onEventUnhandledContent: (E) -> Unit) : Obser
     }
 }
 
-sealed class Notify() {
+sealed class Notify {
     abstract val message: String
 
     data class TextMessage(override val message: String) : Notify()
@@ -236,6 +255,7 @@ sealed class NavigationCommand() {
     data class FinishLogin(
         val privateDestination: Int? = null
     ) : NavigationCommand()
+
 }
 
 enum class Loading {

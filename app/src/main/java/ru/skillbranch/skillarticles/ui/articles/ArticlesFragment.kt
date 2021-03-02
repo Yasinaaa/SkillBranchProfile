@@ -4,14 +4,17 @@ import android.database.Cursor
 import android.database.MatrixCursor
 import android.os.Bundle
 import android.provider.BaseColumns
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.AutoCompleteTextView
 import androidx.appcompat.widget.SearchView
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.isVisible
 import androidx.cursoradapter.widget.CursorAdapter
 import androidx.cursoradapter.widget.SimpleCursorAdapter
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.setFragmentResultListener
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -20,11 +23,12 @@ import kotlinx.android.synthetic.main.fragment_articles.*
 import kotlinx.android.synthetic.main.search_view_layout.view.*
 import ru.skillbranch.skillarticles.R
 import ru.skillbranch.skillarticles.data.local.entities.CategoryData
+import ru.skillbranch.skillarticles.ui.base.BaseActivity.MenuItemHolder
+import ru.skillbranch.skillarticles.ui.base.BaseActivity.ToolbarBuilder
 import ru.skillbranch.skillarticles.ui.base.BaseFragment
 import ru.skillbranch.skillarticles.ui.base.Binding
-import ru.skillbranch.skillarticles.ui.base.MenuItemHolder
-import ru.skillbranch.skillarticles.ui.base.ToolbarBuilder
 import ru.skillbranch.skillarticles.ui.delegates.RenderProp
+import ru.skillbranch.skillarticles.ui.dialogs.ChoseCategoryDialog
 import ru.skillbranch.skillarticles.viewmodels.articles.ArticlesState
 import ru.skillbranch.skillarticles.viewmodels.articles.ArticlesViewModel
 import ru.skillbranch.skillarticles.viewmodels.base.IViewModelState
@@ -52,9 +56,9 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
             MenuItemHolder(
                 "Filter",
                 R.id.action_filter,
-                R.drawable.ic_filter_list_black_24dp,
+                R.drawable.ic_filter_list_24,
                 null
-            ) { _ ->
+            ) {
                 val action = ArticlesFragmentDirections.choseCategory(
                     binding.selectedCategories.toTypedArray(),
                     binding.categories.toTypedArray()
@@ -65,7 +69,6 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
     }
 
     private val articlesAdapter = ArticlesAdapter { item, isToggleBookmark ->
-
         if (isToggleBookmark) {
             viewModel.handleToggleBookmark(item.id)
         } else {
@@ -73,11 +76,11 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
                 item.id,
                 item.author,
                 item.authorAvatar!!,
+                item.date,
                 item.category,
                 item.categoryIcon,
                 item.poster,
-                item.title,
-                item.date
+                item.title
             )
             viewModel.navigate(NavigationCommand.To(action.actionId, action.arguments))
         }
@@ -86,12 +89,17 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        setFragmentResultListener(ChoseCategoryDialog.CHOOSE_CATEGORY_KEY) { _, bundle ->
+            @Suppress("UNCHECKED_CAST")
+            viewModel.applyCategories(bundle[ChoseCategoryDialog.SELECTED_CATEGORIES] as List<String>)
+        }
+
         suggestionsAdapter = SimpleCursorAdapter(
             context,
             android.R.layout.simple_list_item_1,
-            null, //cursor
-            arrayOf("tag"), //cursor column for bind on view
-            intArrayOf(android.R.id.text1), //text view id for bind data from cursor columns
+            null,//cursor
+            arrayOf("tag"),//cursor column to bind on view
+            intArrayOf(android.R.id.text1),//text view id for bind data from cursor columns
             CursorAdapter.FLAG_REGISTER_CONTENT_OBSERVER
         )
         suggestionsAdapter.setFilterQueryProvider { constraint -> populateAdapter(constraint) }
@@ -100,13 +108,19 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
-        val menuItem = menu.findItem(R.id.action_search)
-        val searchView = menuItem.actionView as SearchView
+        val searchItem = menu.findItem(R.id.action_search)
+        val searchView = (searchItem?.actionView as SearchView)
+        searchView.queryHint = getString(R.string.article_search_placeholder)
+
         if (binding.isSearch) {
-            menuItem.expandActionView()
+            searchItem.expandActionView()
             searchView.setQuery(binding.searchQuery, false)
+
+            if (binding.isFocusedSearch) searchView.requestFocus()
+            else searchView.clearFocus()
         }
 
+        //подсказка при вводе первого символа
         val autoTv = searchView.findViewById<AutoCompleteTextView>(R.id.search_src_text)
         autoTv.threshold = 1
 
@@ -124,7 +138,8 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
         })
 
-        menuItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+
+        searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
             override fun onMenuItemActionExpand(item: MenuItem?): Boolean {
                 viewModel.handleSearchMode(true)
                 return true
@@ -143,11 +158,16 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
                 return true
             }
 
-            override fun onQueryTextChange(newText: String?): Boolean {
+            override fun onQueryTextChange(newText: String): Boolean {
                 viewModel.handleSearch(newText)
                 return true
             }
         })
+
+        searchView.setOnCloseListener {
+            viewModel.handleSearchMode(false)
+            true
+        }
     }
 
     override fun onDestroyView() {
@@ -156,12 +176,12 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
     }
 
     override fun renderLoading(loadingState: Loading) {
-        when(loadingState){
-            Loading.SHOW_LOADING -> if(!refresh.isRefreshing) root.progress.isVisible = true
+        when (loadingState) {
+            Loading.SHOW_LOADING -> if (!refresh.isRefreshing) root.progress.isVisible = true
             Loading.SHOW_BLOCKING_LOADING -> root.progress.isVisible = false
-            Loading.HIDE_LOADING ->{
+            Loading.HIDE_LOADING -> {
                 root.progress.isVisible = false
-                if(refresh.isRefreshing) refresh.isRefreshing = false
+                if (refresh.isRefreshing) refresh.isRefreshing = false
             }
         }
     }
@@ -175,6 +195,7 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
         viewModel.observeList(viewLifecycleOwner, args.isBookmarks) {
             articlesAdapter.submitList(it)
+            Log.e("ArticlesFragment", "lastKey > ${articlesAdapter.currentList?.lastKey}")
         }
 
         viewModel.observeTags(viewLifecycleOwner) {
@@ -185,7 +206,9 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
             binding.categories = it
         }
 
-        refresh.setOnRefreshListener(viewModel::refresh)
+        refresh.setOnRefreshListener {
+            viewModel.refresh()
+        }
     }
 
     private fun populateAdapter(constraint: CharSequence?): Cursor {
@@ -194,7 +217,8 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
                 BaseColumns._ID,
                 "tag"
             )
-        ) //create cursor for table with 2 column _id, tag
+        )//create cursor for table with 2 column _id, tag
+
         constraint ?: return cursor
 
         val currentCursor = suggestionsAdapter.cursor
@@ -210,17 +234,30 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
     inner class ArticlesBinding : Binding() {
         var categories: List<CategoryData> = emptyList()
-        var selectedCategories: List<String> by RenderProp(emptyList()) {
-            //TODO selected color on icon
+        var selectedCategories: List<String> by RenderProp(emptyList<String>()) {
+            var drawable = toolbar.menu?.findItem(R.id.action_filter)?.icon ?: return@RenderProp
+            drawable = DrawableCompat.wrap(drawable)
+
+            if (it.isNotEmpty()) DrawableCompat.setTint(
+                drawable,
+                resources.getColor(R.color.color_accent, null)
+            )
+            else DrawableCompat.setTint(
+                drawable,
+                resources.getColor(R.color.color_on_article_bar, null)
+            )
+
+            toolbar.menu.findItem(R.id.action_filter).icon = drawable
         }
+        var isFocusedSearch: Boolean = false
         var searchQuery: String? = null
         var isSearch: Boolean = false
         var isLoading: Boolean by RenderProp(true) {
-            //TODO show shimmer on rv_list
+            //shimmer
         }
 
         var isHashtagSearch: Boolean by RenderProp(false)
-        var tags: List<String> by RenderProp(emptyList())
+        var tags: List<String> by RenderProp(emptyList<String>())
 
         override fun bind(data: IViewModelState) {
             data as ArticlesState
@@ -237,13 +274,11 @@ class ArticlesFragment : BaseFragment<ArticlesViewModel>() {
 
                 if (ihs && tags.isNotEmpty()) {
                     for ((counter, tag) in tags.withIndex()) {
-                        cursor.addRow(arrayOf<Any>(counter, tag))
+                        cursor.addRow(arrayOf<kotlin.Any>(counter, tag))
                     }
                 }
-
                 suggestionsAdapter.changeCursor(cursor)
             }
         }
     }
-
 }

@@ -2,19 +2,29 @@ package ru.skillbranch.skillarticles.ui.base
 
 import android.os.Bundle
 import android.view.*
+import androidx.annotation.VisibleForTesting
 import androidx.fragment.app.Fragment
 import kotlinx.android.synthetic.main.activity_root.*
 import ru.skillbranch.skillarticles.ui.RootActivity
+import ru.skillbranch.skillarticles.ui.base.BaseActivity.BottombarBuilder
+import ru.skillbranch.skillarticles.ui.base.BaseActivity.ToolbarBuilder
 import ru.skillbranch.skillarticles.viewmodels.base.BaseViewModel
 import ru.skillbranch.skillarticles.viewmodels.base.IViewModelState
 import ru.skillbranch.skillarticles.viewmodels.base.Loading
 
-
 abstract class BaseFragment<T : BaseViewModel<out IViewModelState>> : Fragment() {
+
+    //mock root for testing
+    @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    var _mockRoot: RootActivity? = null
+
     val root: RootActivity
-        get() = activity as RootActivity
+        get() = _mockRoot ?: activity as RootActivity
+
     open val binding: Binding? = null
-    protected abstract val viewModel: T
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    abstract val viewModel: T
     protected abstract val layout: Int
 
     open val prepareToolbar: (ToolbarBuilder.() -> Unit)? = null
@@ -32,20 +42,8 @@ abstract class BaseFragment<T : BaseViewModel<out IViewModelState>> : Fragment()
         savedInstanceState: Bundle?
     ): View? = inflater.inflate(layout, container, false)
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        //prepare toolbar
-        root.toolbarBuilder
-            .invalidate()
-            .prepare(prepareToolbar)
-            .build(root)
-
-        root.bottombarBuilder
-            .invalidate()
-            .prepare(prepareBottombar)
-            .build(root)
 
         //restore state
         viewModel.restoreState()
@@ -58,13 +56,26 @@ abstract class BaseFragment<T : BaseViewModel<out IViewModelState>> : Fragment()
 
         viewModel.observeNotifications(viewLifecycleOwner) { root.renderNotification(it) }
         viewModel.observeNavigation(viewLifecycleOwner) { root.viewModel.navigate(it) }
-        viewModel.observeLoading(viewLifecycleOwner){renderLoading(it)}
+        viewModel.observeLoading(viewLifecycleOwner) { renderLoading(it) }
 
-        setupViews()
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
+
+        //prepare toolbar
+        root.toolbarBuilder
+            .invalidate()
+            .prepare(prepareToolbar)
+            .build(root)
+
+        root.bottombarBuilder
+            .invalidate()
+            .prepare(prepareBottombar)
+            .build(root)
+
+        setupViews()
+
         binding?.rebind()
     }
 
@@ -90,8 +101,8 @@ abstract class BaseFragment<T : BaseViewModel<out IViewModelState>> : Fragment()
         super.onPrepareOptionsMenu(menu)
     }
 
-    //open for overwrite in fragment if need
-    open fun renderLoading(loadingState: Loading){
+    //open for overwrite in fregment if need
+    open fun renderLoading(loadingState: Loading) {
         root.renderLoading(loadingState)
     }
 }

@@ -19,9 +19,14 @@ class AuthFragment : BaseFragment<AuthViewModel>() {
 
 
     override fun setupViews() {
+        tv_register.setOnClickListener {
+            //viewModel.navigate(NavigationCommand.To(R.id.page_registration))
+        }
+
         tv_privacy.setOnClickListener {
             viewModel.navigate(NavigationCommand.To(R.id.page_privacy_policy))
         }
+
         btn_login.setOnClickListener {
             viewModel.handleLogin(
                 et_login.text.toString(),
@@ -32,5 +37,6 @@ class AuthFragment : BaseFragment<AuthViewModel>() {
         val color = root.attrValue(R.attr.colorPrimary)
         (tv_access_code.text as Spannable).let { it[0..it.length] = UnderlineSpan(color) }
         (tv_privacy.text as Spannable).let { it[0..it.length] = UnderlineSpan(color) }
+        (tv_register.text as Spannable).let { it[0..it.length] = UnderlineSpan(color) }
     }
 }
