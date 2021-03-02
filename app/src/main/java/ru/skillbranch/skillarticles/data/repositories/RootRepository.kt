@@ -4,7 +4,6 @@ import androidx.lifecycle.LiveData
 import ru.skillbranch.skillarticles.data.local.PrefManager
 import ru.skillbranch.skillarticles.data.remote.NetworkManager
 import ru.skillbranch.skillarticles.data.remote.req.LoginReq
-import ru.skillbranch.skillarticles.data.remote.req.RegistrationReq
 
 object RootRepository {
 
@@ -20,10 +19,10 @@ object RootRepository {
         preferences.refreshToken = auth.refreshToken
     }
 
-    suspend fun handleRegister(name: String, login: String, password: String, dest: Int?) {
-        val auth = network.register(RegistrationReq(name, login, password))
-        preferences.profile = auth.user
-        preferences.accessToken = "Bearer ${auth.accessToken}"
-        preferences.refreshToken = auth.refreshToken
-    }
+//    suspend fun handleRegister(name: String, login: String, password: String, dest: Int?) {
+//        val auth = network.register(RegistrationReq(name, login, password))
+//        preferences.profile = auth.user
+//        preferences.accessToken = "Bearer ${auth.accessToken}"
+//        preferences.refreshToken = auth.refreshToken
+//    }
 }
