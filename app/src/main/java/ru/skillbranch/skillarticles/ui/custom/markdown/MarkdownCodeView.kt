@@ -28,6 +28,7 @@ class MarkdownCodeView private constructor(
     context: Context,
     fontSize: Float
 ) : ViewGroup(context, null, 0), IMarkdownView {
+
     override var fontSize: Float = fontSize
         set(value) {
             tv_codeView.textSize = value * 0.85f

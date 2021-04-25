@@ -3,6 +3,7 @@ package ru.skillbranch.skillarticles.ui.custom.markdown
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
+import android.os.Build
 import android.os.Parcel
 import android.os.Parcelable
 import android.text.Spannable
@@ -84,15 +85,17 @@ class MarkdownImageView private constructor(
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         iv_image = ImageView(context).apply {
-            outlineProvider = object : ViewOutlineProvider() {
-                override fun getOutline(view: View, outline: Outline) {
-                    outline.setRoundRect(
-                        Rect(0, 0, view.measuredWidth, view.measuredHeight),
-                        cornerRadius
-                    )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: Outline) {
+                        outline.setRoundRect(
+                            Rect(0, 0, view.measuredWidth, view.measuredHeight),
+                            cornerRadius
+                        )
+                    }
                 }
+                clipToOutline = true
             }
-            clipToOutline = true
         }
         addView(iv_image)
 

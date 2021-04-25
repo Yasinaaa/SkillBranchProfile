@@ -14,5 +14,5 @@
 .externalNativeBuild
 .cxx
 local.properties
-/app/src/androidTest/java/ru/skillbranch/skillarticles/
-/app/src/test/java/ru/skillbranch/skillarticles/
+#/app/src/androidTest/java/ru/skillbranch/skillarticles/
+#/app/src/test/java/ru/skillbranch/skillarticles/
